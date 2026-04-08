@@ -1,0 +1,73 @@
+name: traffic_openenv
+description: Deterministic 2x2 adaptive traffic signal control benchmark with connected intersections.
+benchmark: traffic_openenv_2x2_network
+version: 0.1.0
+runtime:
+  python: "3.11"
+entrypoint:
+  api: app:app
+  inference: inference.py
+environment:
+  package: traffic_env
+  class: TrafficSignalEnv
+tasks:
+  - name: easy_balanced
+    max_steps: 20
+    description: Balanced one-car arrivals from each direction every step.
+  - name: medium_ew_bias
+    max_steps: 24
+    description: East-west arrivals are consistently heavier than north-south.
+  - name: hard_bursty
+    max_steps: 30
+    description: Bursty deterministic schedule with demand shifts across the episode.
+  - name: emergency_priority
+    max_steps: 24
+    description: Deterministic emergency-corridor surge that stresses fairness versus priority handling.
+  - name: arterial_corridor
+    max_steps: 28
+    description: Coordinated east-west corridor movement across connected intersections.
+  - name: incident_blockage
+    max_steps: 28
+    description: Deterministic downstream blockage reducing service on one branch of the network.
+  - name: phase_shift_rush
+    max_steps: 28
+    description: Sharp demand flips mid-episode that punish slow adaptation.
+  - name: starvation_trap
+    max_steps: 26
+    description: Persistent low-volume side-street demand that fairness-unaware policies will ignore.
+  - name: recovery_after_gridlock
+    max_steps: 26
+    description: Starts partially congested and rewards efficient recovery to a healthier network.
+  - name: downtown_grid_peak
+    max_steps: 32
+    description: Saturated downtown grid with heavy demand and intersection imbalance pressure.
+  - name: long_horizon_corridor
+    max_steps: 48
+    description: Extended arterial scenario that emphasizes stable corridor progression across a longer horizon.
+  - name: stability_recovery_cycle
+    max_steps: 52
+    description: Long deterministic stress cycle with repeated congestion spikes and recovery phases.
+actions:
+  - keep
+  - switch
+  - intersection_actions
+observation_fields:
+  - task_name
+  - step_count
+  - max_steps
+  - current_phase
+  - time_in_phase
+  - queues
+  - total_queue
+  - total_wait_time
+  - average_wait_time_per_lane
+  - max_wait_time_per_lane
+  - total_throughput
+  - fairness_index
+  - regime_label
+  - intersections
+  - network_dimensions
+  - network_imbalance
+  - switches_used
+  - last_action_error
+  - done

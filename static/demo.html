@@ -1,0 +1,1755 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Traffic OpenEnv Dashboard</title>
+  <style>
+    :root {
+      --bg: #08111f;
+      --panel: rgba(10, 19, 37, 0.82);
+      --panel-strong: rgba(13, 24, 47, 0.96);
+      --panel-soft: rgba(19, 34, 62, 0.88);
+      --line: rgba(148, 163, 184, 0.16);
+      --text: #e5eefc;
+      --muted: #94a3b8;
+      --green: #22c55e;
+      --yellow: #f59e0b;
+      --red: #ef4444;
+      --cyan: #22d3ee;
+      --blue: #3b82f6;
+      --purple: #8b5cf6;
+      --orange: #fb923c;
+      --shadow: 0 18px 50px rgba(2, 6, 23, 0.4);
+      --road: #2f3744;
+      --road-line: rgba(255, 255, 255, 0.42);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      line-height: 1.45;
+      color: var(--text);
+      background:
+        radial-gradient(circle at top left, rgba(34, 211, 238, 0.14), transparent 28%),
+        radial-gradient(circle at top right, rgba(59, 130, 246, 0.14), transparent 28%),
+        radial-gradient(circle at bottom center, rgba(139, 92, 246, 0.12), transparent 30%),
+        linear-gradient(180deg, #07101d 0%, #0d172a 100%);
+      overflow-x: hidden;
+    }
+
+    body::before,
+    body::after {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    body::before {
+      background:
+        linear-gradient(rgba(148, 163, 184, 0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(148, 163, 184, 0.04) 1px, transparent 1px);
+      background-size: 42px 42px;
+      mask-image: radial-gradient(circle at center, black 38%, transparent 84%);
+      animation: gridDrift 24s linear infinite;
+    }
+
+    body::after {
+      background:
+        radial-gradient(circle at 24% 24%, rgba(34, 211, 238, 0.12), transparent 24%),
+        radial-gradient(circle at 80% 20%, rgba(59, 130, 246, 0.12), transparent 22%),
+        radial-gradient(circle at 55% 78%, rgba(139, 92, 246, 0.1), transparent 25%);
+      filter: blur(20px);
+      animation: ambientFloat 16s ease-in-out infinite alternate;
+    }
+
+    .page {
+      max-width: 1450px;
+      margin: 0 auto;
+      padding: 22px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .hero,
+    .panel {
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(12px);
+    }
+
+    .hero {
+      position: relative;
+      overflow: hidden;
+      padding: 26px;
+      margin-bottom: 18px;
+      background:
+        linear-gradient(135deg, rgba(34, 211, 238, 0.14), transparent 40%),
+        linear-gradient(180deg, rgba(11, 20, 38, 0.96), rgba(11, 20, 38, 0.9));
+    }
+
+    .hero::before,
+    .hero::after {
+      content: "";
+      position: absolute;
+      width: 360px;
+      height: 360px;
+      border-radius: 999px;
+      filter: blur(12px);
+      pointer-events: none;
+    }
+
+    .hero::before {
+      top: -80px;
+      left: -60px;
+      background: radial-gradient(circle, rgba(34, 211, 238, 0.18), transparent 68%);
+      animation: heroGlow 9s ease-in-out infinite alternate;
+    }
+
+    .hero::after {
+      right: -80px;
+      bottom: -140px;
+      background: radial-gradient(circle, rgba(59, 130, 246, 0.16), transparent 70%);
+      animation: heroGlow 11s ease-in-out infinite alternate-reverse;
+    }
+
+    .hero-grid {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      grid-template-columns: 1.2fr 0.8fr;
+      gap: 18px;
+      align-items: end;
+    }
+
+    .hero h1 {
+      margin: 0 0 8px;
+      font-size: clamp(2.2rem, 4vw, 3.25rem);
+      letter-spacing: 0.01em;
+    }
+
+    .hero-copy {
+      max-width: 900px;
+    }
+
+    .subtle { color: var(--muted); }
+
+    .hero-chips,
+    .hero-status {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .hero-status {
+      justify-content: flex-end;
+      align-items: flex-start;
+    }
+
+    .hero-chip {
+      border-radius: 999px;
+      padding: 9px 13px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(148, 163, 184, 0.18);
+      font-size: 0.82rem;
+      font-weight: 700;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--text);
+    }
+
+    .hero-chip.live::before {
+      content: "";
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: var(--green);
+      box-shadow: 0 0 10px rgba(34, 197, 94, 0.8);
+      animation: livePulse 1.8s ease-in-out infinite;
+    }
+
+    .controls {
+      display: grid;
+      grid-template-columns: 2fr repeat(5, 1fr);
+      gap: 14px;
+      margin-bottom: 18px;
+    }
+
+    .panel {
+      padding: 16px;
+      background: var(--panel);
+    }
+
+    label {
+      display: block;
+      color: var(--muted);
+      font-size: 0.86rem;
+      margin-bottom: 8px;
+    }
+
+    select,
+    button {
+      width: 100%;
+      border-radius: 12px;
+      border: 1px solid var(--line);
+      padding: 12px 14px;
+      font-size: 0.95rem;
+      background: rgba(14, 25, 46, 0.95);
+      color: var(--text);
+    }
+
+    select {
+      appearance: none;
+      background-image:
+        linear-gradient(45deg, transparent 50%, rgba(229, 238, 252, 0.7) 50%),
+        linear-gradient(135deg, rgba(229, 238, 252, 0.7) 50%, transparent 50%);
+      background-position:
+        calc(100% - 18px) calc(50% - 3px),
+        calc(100% - 12px) calc(50% - 3px);
+      background-size: 6px 6px, 6px 6px;
+      background-repeat: no-repeat;
+      padding-right: 34px;
+    }
+
+    button {
+      cursor: pointer;
+      font-weight: 700;
+      transition: transform 140ms ease, box-shadow 140ms ease, border-color 140ms ease;
+    }
+
+    button:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 12px 24px rgba(2, 6, 23, 0.24);
+      border-color: rgba(148, 163, 184, 0.36);
+    }
+
+    button:disabled {
+      opacity: 0.58;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    button.primary {
+      background: linear-gradient(180deg, rgba(22, 163, 74, 0.96), rgba(21, 128, 61, 0.96));
+    }
+
+    button.warn {
+      background: linear-gradient(180deg, rgba(185, 28, 28, 0.96), rgba(127, 29, 29, 0.96));
+    }
+
+    button.alt {
+      background: linear-gradient(180deg, rgba(37, 99, 235, 0.95), rgba(29, 78, 216, 0.95));
+    }
+
+    .main-grid {
+      display: grid;
+      grid-template-columns: 1.6fr 0.95fr;
+      gap: 18px;
+      margin-bottom: 18px;
+    }
+
+    .right-stack,
+    .chart-grid {
+      display: grid;
+      gap: 18px;
+    }
+
+    .chart-grid {
+      grid-template-columns: repeat(3, 1fr);
+      margin-bottom: 18px;
+    }
+
+    .bottom-grid {
+      display: grid;
+      grid-template-columns: 0.95fr 1.05fr;
+      gap: 18px;
+    }
+
+    .visual-header,
+    .panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .phase-pill,
+    .regime-pill,
+    .badge {
+      border-radius: 999px;
+      padding: 8px 12px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      border: 1px solid transparent;
+    }
+
+    .phase-pill {
+      background: rgba(37, 99, 235, 0.14);
+      color: #bfdbfe;
+    }
+
+    .regime-pill {
+      background: rgba(34, 197, 94, 0.12);
+      color: #bbf7d0;
+    }
+
+    .badge.good {
+      background: rgba(34, 197, 94, 0.14);
+      color: #bbf7d0;
+    }
+
+    .badge.warn {
+      background: rgba(249, 115, 22, 0.14);
+      color: #fed7aa;
+    }
+
+    .badge.info {
+      background: rgba(59, 130, 246, 0.15);
+      color: #bfdbfe;
+    }
+
+    .visual-card {
+      background:
+        linear-gradient(180deg, rgba(8, 16, 30, 0.98), rgba(12, 24, 42, 0.95));
+    }
+
+    .intersection-shell {
+      position: relative;
+      width: min(100%, 720px);
+      aspect-ratio: 1 / 1;
+      margin: 0 auto;
+      border-radius: 24px;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at center, rgba(255,255,255,0.04), transparent 48%),
+        #1b2331;
+      border: 1px solid rgba(148, 163, 184, 0.16);
+    }
+
+    .intersection-shell::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.03), transparent 20%, transparent 80%, rgba(255,255,255,0.03)),
+        radial-gradient(circle at center, rgba(255,255,255,0.04), transparent 55%);
+      z-index: 1;
+      pointer-events: none;
+    }
+
+    .road-vertical,
+    .road-horizontal {
+      position: absolute;
+      background: var(--road);
+      overflow: hidden;
+    }
+
+    .road-vertical {
+      top: 0;
+      bottom: 0;
+      left: 50%;
+      width: 34%;
+      transform: translateX(-50%);
+    }
+
+    .road-horizontal {
+      left: 0;
+      right: 0;
+      top: 50%;
+      height: 34%;
+      transform: translateY(-50%);
+    }
+
+    .road-vertical::before,
+    .road-horizontal::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: repeating-linear-gradient(
+        135deg,
+        rgba(255,255,255,0.025) 0 6px,
+        transparent 6px 18px
+      );
+      opacity: 0.22;
+    }
+
+    .lane-mark-v,
+    .lane-mark-h {
+      position: absolute;
+      opacity: 0.7;
+    }
+
+    .lane-mark-v {
+      top: 0;
+      bottom: 0;
+      left: 50%;
+      width: 4px;
+      transform: translateX(-50%);
+      background: repeating-linear-gradient(to bottom, var(--road-line) 0 16px, transparent 16px 34px);
+    }
+
+    .lane-mark-h {
+      left: 0;
+      right: 0;
+      top: 50%;
+      height: 4px;
+      transform: translateY(-50%);
+      background: repeating-linear-gradient(to right, var(--road-line) 0 16px, transparent 16px 34px);
+    }
+
+    .intersection-box {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 27%;
+      height: 27%;
+      transform: translate(-50%, -50%);
+      border: 3px solid rgba(255,255,255,0.36);
+      border-radius: 14px;
+      box-shadow: inset 0 0 44px rgba(255,255,255,0.03);
+      z-index: 2;
+    }
+
+    .stop-line {
+      position: absolute;
+      background: rgba(255,255,255,0.75);
+      border-radius: 4px;
+      z-index: 3;
+    }
+
+    .stop-line.north,
+    .stop-line.south {
+      width: 18%;
+      height: 4px;
+      left: 50%;
+      transform: translateX(-50%);
+    }
+
+    .stop-line.north { top: 35.2%; }
+    .stop-line.south { bottom: 35.2%; }
+
+    .stop-line.east,
+    .stop-line.west {
+      height: 18%;
+      width: 4px;
+      top: 50%;
+      transform: translateY(-50%);
+    }
+
+    .stop-line.west { left: 35.2%; }
+    .stop-line.east { right: 35.2%; }
+
+    .signal-cluster {
+      position: absolute;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      z-index: 6;
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: white;
+    }
+
+    .signal-cluster.ns { top: 18%; left: 50%; transform: translateX(-50%); }
+    .signal-cluster.ew { right: 18%; top: 50%; transform: translateY(-50%); }
+
+    .lights {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      padding: 7px 10px;
+      border-radius: 999px;
+      background: rgba(2, 6, 23, 0.68);
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+
+    .light {
+      width: 12px;
+      height: 12px;
+      border-radius: 999px;
+      background: rgba(148, 163, 184, 0.32);
+    }
+
+    .light.red.on { background: var(--red); box-shadow: 0 0 14px rgba(239, 68, 68, 0.75); }
+    .light.yellow.on { background: var(--yellow); box-shadow: 0 0 14px rgba(245, 158, 11, 0.78); }
+    .light.green.on { background: var(--green); box-shadow: 0 0 14px rgba(34, 197, 94, 0.78); }
+
+    .cluster-label {
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .direction-label,
+    .more-label {
+      position: absolute;
+      z-index: 6;
+      font-size: 0.78rem;
+      font-weight: 700;
+      border-radius: 999px;
+      padding: 5px 9px;
+      background: rgba(2, 6, 23, 0.66);
+      border: 1px solid rgba(255,255,255,0.1);
+      color: var(--text);
+    }
+
+    .direction-label.north { top: 4%; left: 50%; transform: translateX(-50%); }
+    .direction-label.south { bottom: 4%; left: 50%; transform: translateX(-50%); }
+    .direction-label.west { left: 4%; top: 50%; transform: translateY(-50%); }
+    .direction-label.east { right: 4%; top: 50%; transform: translateY(-50%); }
+
+    .more-label.north { top: 16%; left: 58%; }
+    .more-label.south { bottom: 16%; left: 58%; }
+    .more-label.west { left: 13%; top: 59%; }
+    .more-label.east { right: 13%; top: 59%; }
+
+    .queue-lane {
+      position: absolute;
+      display: flex;
+      gap: 6px;
+      z-index: 4;
+      transition: filter 180ms ease;
+    }
+
+    .queue-lane.active { filter: drop-shadow(0 0 10px rgba(34, 197, 94, 0.38)); }
+    .queue-lane.clearance { filter: drop-shadow(0 0 10px rgba(245, 158, 11, 0.42)); }
+    .queue-lane.hot { filter: drop-shadow(0 0 10px rgba(249, 115, 22, 0.44)); }
+
+    .queue-lane.north,
+    .queue-lane.south {
+      left: 50%;
+      transform: translateX(-50%);
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .queue-lane.north { top: 8%; bottom: 53%; justify-content: flex-end; }
+    .queue-lane.south { top: 53%; bottom: 8%; justify-content: flex-start; }
+
+    .queue-lane.east,
+    .queue-lane.west {
+      top: 50%;
+      transform: translateY(-50%);
+      align-items: center;
+      flex-direction: row;
+    }
+
+    .queue-lane.west { left: 8%; right: 53%; justify-content: flex-end; }
+    .queue-lane.east { left: 53%; right: 8%; justify-content: flex-start; }
+
+    .car {
+      position: relative;
+      border-radius: 8px;
+      flex: 0 0 auto;
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.2);
+      transition: transform 220ms ease, filter 180ms ease;
+    }
+
+    .car.vertical { width: 24px; height: 14px; }
+    .car.horizontal { width: 14px; height: 24px; }
+    .car.north { background: linear-gradient(180deg, #22d3ee, #0f766e); }
+    .car.south { background: linear-gradient(180deg, #4ade80, #166534); }
+    .car.east { background: linear-gradient(180deg, #fdba74, #c2410c); }
+    .car.west { background: linear-gradient(180deg, #c4b5fd, #7c3aed); }
+    .car.active.flow { filter: brightness(1.1); }
+    .queue-lane.north .car.active.flow { transform: translateY(6px); }
+    .queue-lane.south .car.active.flow { transform: translateY(-6px); }
+    .queue-lane.east .car.active.flow { transform: translateX(-6px); }
+    .queue-lane.west .car.active.flow { transform: translateX(6px); }
+
+    .car.active.flow::after {
+      content: "";
+      position: absolute;
+      inset: 2px;
+      border-radius: 6px;
+      background: linear-gradient(90deg, rgba(255,255,255,0.24), transparent);
+      animation: laneShimmer 1.1s linear infinite;
+      opacity: 0.6;
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(120px, 1fr));
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .stat-card,
+    .lane-card,
+    .explain-card,
+    .decision-card {
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: var(--panel-soft);
+    }
+
+    .stat-card {
+      padding: 14px;
+      transition: transform 180ms ease, box-shadow 180ms ease;
+    }
+
+    .stat-card.pulse {
+      animation: metricPulse 420ms ease;
+    }
+
+    .stat-value {
+      font-size: 1.18rem;
+      font-weight: 800;
+      margin-top: 6px;
+    }
+
+    .lane-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(140px, 1fr));
+      gap: 12px;
+    }
+
+    .network-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(140px, 1fr));
+      gap: 12px;
+      margin-top: 14px;
+    }
+
+    .network-card {
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 12px;
+      background: rgba(255,255,255,0.03);
+    }
+
+    .network-card .network-title {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      align-items: center;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    .network-phase {
+      font-size: 0.74rem;
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: rgba(59, 130, 246, 0.14);
+      color: #bfdbfe;
+    }
+
+    .lane-card {
+      padding: 14px;
+      transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+    }
+
+    .lane-card:hover { transform: translateY(-1px); }
+
+    .lane-card.hot {
+      border-color: rgba(249, 115, 22, 0.78);
+      box-shadow: 0 0 0 1px rgba(249, 115, 22, 0.18), 0 0 24px rgba(249, 115, 22, 0.14);
+    }
+
+    .lane-title {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      font-weight: 700;
+      margin-bottom: 10px;
+    }
+
+    .lane-count { font-size: 1.04rem; }
+
+    .bar-shell {
+      width: 100%;
+      height: 12px;
+      background: rgba(148, 163, 184, 0.12);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    .bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #22c55e 0%, #f59e0b 60%, #ef4444 100%);
+      width: 0%;
+      transition: width 220ms ease;
+    }
+
+    .decision-card,
+    .explain-card {
+      padding: 14px;
+    }
+
+    .decision-card.switching {
+      box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.2), 0 0 28px rgba(245, 158, 11, 0.12);
+    }
+
+    .decision-main {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .decision-kpi {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 12px;
+      background: rgba(255,255,255,0.02);
+    }
+
+    .decision-value {
+      font-size: 1.08rem;
+      font-weight: 800;
+      margin-top: 4px;
+    }
+
+    .explain-list,
+    .score-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .explain-item,
+    .score-item {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 12px;
+      background: rgba(255,255,255,0.02);
+    }
+
+    .score-overall {
+      border: 1px solid rgba(34, 211, 238, 0.18);
+      border-radius: 14px;
+      padding: 12px 14px;
+      background: linear-gradient(180deg, rgba(34, 211, 238, 0.08), rgba(15, 23, 42, 0.22));
+      color: #dbeafe;
+    }
+
+    .score-title {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: baseline;
+      margin-bottom: 6px;
+      font-weight: 700;
+    }
+
+    .score-bar-shell {
+      margin-top: 8px;
+      width: 100%;
+      height: 9px;
+      border-radius: 999px;
+      background: rgba(148, 163, 184, 0.12);
+      overflow: hidden;
+    }
+
+    .score-bar-fill {
+      height: 100%;
+      border-radius: 999px;
+      background: linear-gradient(90deg, #22c55e, #38bdf8);
+      transition: width 220ms ease;
+    }
+
+    .score-bar-fill.penalty {
+      background: linear-gradient(90deg, #f59e0b, #ef4444);
+    }
+
+    .score-note {
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 0.92rem;
+      line-height: 1.45;
+    }
+
+    .trend-strip {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 18px;
+    }
+
+    .trend-chip {
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 8px 12px;
+      background: rgba(255,255,255,0.03);
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    .trend-chip.warn {
+      border-color: rgba(239, 68, 68, 0.35);
+      color: #fecaca;
+      background: rgba(127, 29, 29, 0.22);
+    }
+
+    .trend-chip.good {
+      border-color: rgba(34, 197, 94, 0.30);
+      color: #bbf7d0;
+      background: rgba(20, 83, 45, 0.20);
+    }
+
+    .chart-card svg {
+      width: 100%;
+      height: 150px;
+      display: block;
+      border-radius: 14px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+      border: 1px solid var(--line);
+    }
+
+    .chart-meta {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 10px;
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+
+    .history table,
+    .compare-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+    }
+
+    .history th,
+    .history td,
+    .compare-table th,
+    .compare-table td {
+      padding: 10px 8px;
+      text-align: left;
+      border-bottom: 1px solid var(--line);
+      vertical-align: top;
+    }
+
+    .history thead th,
+    .compare-table thead th {
+      position: sticky;
+      top: 0;
+      background: rgba(8, 17, 31, 0.95);
+      backdrop-filter: blur(8px);
+      z-index: 1;
+    }
+
+    .danger-banner {
+      display: none;
+      margin-bottom: 14px;
+      padding: 12px 14px;
+      border-radius: 14px;
+      border: 1px solid rgba(249, 115, 22, 0.45);
+      background: rgba(249, 115, 22, 0.12);
+      color: #fed7aa;
+      font-weight: 700;
+      animation: warningPulse 1.8s ease-in-out infinite;
+    }
+
+    .danger-banner.show { display: block; }
+
+    .leader-1 { background: linear-gradient(90deg, rgba(34, 197, 94, 0.12), rgba(34, 197, 94, 0.03)); }
+    .leader-2 { background: linear-gradient(90deg, rgba(59, 130, 246, 0.1), rgba(59, 130, 246, 0.03)); }
+    .leader-3 { background: linear-gradient(90deg, rgba(245, 158, 11, 0.1), rgba(245, 158, 11, 0.03)); }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 14px;
+      color: var(--muted);
+      font-size: 0.82rem;
+    }
+
+    .legend-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+    }
+
+    .legend-swatch {
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+    }
+
+    @keyframes livePulse {
+      0%, 100% { transform: scale(1); opacity: 0.75; }
+      50% { transform: scale(1.28); opacity: 1; }
+    }
+
+    @keyframes gridDrift {
+      from { transform: translateY(0); }
+      to { transform: translateY(42px); }
+    }
+
+    @keyframes ambientFloat {
+      from { transform: translate3d(0, 0, 0) scale(1); }
+      to { transform: translate3d(10px, -10px, 0) scale(1.04); }
+    }
+
+    @keyframes heroGlow {
+      from { transform: scale(1) translateY(0); opacity: 0.9; }
+      to { transform: scale(1.08) translateY(-10px); opacity: 1; }
+    }
+
+    @keyframes metricPulse {
+      0% { transform: scale(1); box-shadow: none; }
+      50% { transform: scale(1.02); box-shadow: 0 0 18px rgba(34, 211, 238, 0.12); }
+      100% { transform: scale(1); box-shadow: none; }
+    }
+
+    @keyframes laneShimmer {
+      from { transform: translateX(-8px); opacity: 0.15; }
+      to { transform: translateX(8px); opacity: 0.65; }
+    }
+
+    @keyframes warningPulse {
+      0%, 100% { box-shadow: 0 0 0 rgba(249, 115, 22, 0.1); }
+      50% { box-shadow: 0 0 20px rgba(249, 115, 22, 0.18); }
+    }
+
+    @media (max-width: 1320px) {
+      .controls {
+        grid-template-columns: repeat(3, 1fr);
+      }
+    }
+
+    @media (max-width: 1150px) {
+      .hero-grid,
+      .main-grid,
+      .chart-grid,
+      .bottom-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .hero-status {
+        justify-content: flex-start;
+      }
+    }
+
+    @media (max-width: 720px) {
+      .page { padding: 16px; }
+      .controls,
+      .summary-grid,
+      .lane-grid,
+      .network-grid,
+      .decision-main { grid-template-columns: 1fr; }
+      .history,
+      .compare-wrap { overflow-x: auto; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *,
+      *::before,
+      *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <section class="hero">
+      <div class="hero-grid">
+        <div class="hero-copy">
+          <h1>Traffic OpenEnv Control Dashboard</h1>
+          <div class="subtle">Interactive 2x2 network benchmark view with live traffic state, policy feedback, and baseline analytics.</div>
+          <div class="subtle" id="taskMotivation" style="margin-top:8px;">Loading scenario details...</div>
+          <div class="subtle" id="taskGoal" style="margin-top:6px;">Loading task objective...</div>
+          <div class="subtle" id="taskWarning" style="margin-top:6px;color:#fbbf24;">Loading stress note...</div>
+          <div class="hero-chips" style="margin-top:16px;">
+            <div class="hero-chip live">System Live</div>
+            <div class="hero-chip" id="heroScenario">Scenario: loading</div>
+            <div class="hero-chip" id="heroStatus">Status: Ready</div>
+          </div>
+        </div>
+        <div class="hero-status">
+          <div class="hero-chip" id="heroRegime">Regime: Free Flow</div>
+          <div class="hero-chip">Benchmark Mode</div>
+          <div class="hero-chip">Deterministic Eval</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="controls">
+      <div class="panel">
+        <label for="taskSelect">Task</label>
+        <select id="taskSelect"></select>
+      </div>
+      <div class="panel">
+        <label>&nbsp;</label>
+        <button id="resetBtn" class="alt">Reset</button>
+      </div>
+      <div class="panel">
+        <label>&nbsp;</label>
+        <button id="keepBtn" class="primary">Keep</button>
+      </div>
+      <div class="panel">
+        <label>&nbsp;</label>
+        <button id="switchBtn" class="warn">Switch</button>
+      </div>
+      <div class="panel">
+        <label>&nbsp;</label>
+        <button id="autoBtn" class="alt">Auto Play</button>
+      </div>
+      <div class="panel">
+        <label for="speedSelect">Autoplay Speed</label>
+        <select id="speedSelect">
+          <option value="420">1x</option>
+          <option value="240" selected>2x</option>
+          <option value="120">4x</option>
+        </select>
+      </div>
+    </section>
+
+    <section class="main-grid">
+      <section class="panel visual-card">
+        <div class="visual-header">
+          <div>
+            <h2 style="margin:0;">Intersection Visual</h2>
+            <div class="subtle">Signal state, congestion heat, and animated vehicle flow</div>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <div class="phase-pill" id="phasePill">Phase: NS_GREEN</div>
+            <div class="regime-pill" id="regimeBadge">Free Flow</div>
+          </div>
+        </div>
+        <div id="gridlockBanner" class="danger-banner">Gridlock warning: sustained heavy congestion detected.</div>
+        <div class="intersection-shell">
+          <div class="road-vertical"></div>
+          <div class="road-horizontal"></div>
+          <div class="lane-mark-v"></div>
+          <div class="lane-mark-h"></div>
+          <div class="intersection-box"></div>
+
+          <div class="stop-line north"></div>
+          <div class="stop-line south"></div>
+          <div class="stop-line west"></div>
+          <div class="stop-line east"></div>
+
+          <div class="signal-cluster ns">
+            <div class="lights">
+              <div id="nsRed" class="light red"></div>
+              <div id="nsYellow" class="light yellow"></div>
+              <div id="nsGreen" class="light green"></div>
+            </div>
+            <span class="cluster-label">NS</span>
+          </div>
+
+          <div class="signal-cluster ew">
+            <div class="lights">
+              <div id="ewRed" class="light red"></div>
+              <div id="ewYellow" class="light yellow"></div>
+              <div id="ewGreen" class="light green"></div>
+            </div>
+            <span class="cluster-label">EW</span>
+          </div>
+
+          <div class="direction-label north">North</div>
+          <div class="direction-label south">South</div>
+          <div class="direction-label west">West</div>
+          <div class="direction-label east">East</div>
+
+          <div class="queue-lane north" id="queueNorth"></div>
+          <div class="queue-lane south" id="queueSouth"></div>
+          <div class="queue-lane west" id="queueWest"></div>
+          <div class="queue-lane east" id="queueEast"></div>
+
+          <div class="more-label north" id="moreNorth" hidden></div>
+          <div class="more-label south" id="moreSouth" hidden></div>
+          <div class="more-label west" id="moreWest" hidden></div>
+          <div class="more-label east" id="moreEast" hidden></div>
+        </div>
+        <div class="legend">
+          <div class="legend-item"><span class="legend-swatch" style="background:#22c55e;"></span>Active corridor</div>
+          <div class="legend-item"><span class="legend-swatch" style="background:#f59e0b;"></span>Clearance</div>
+          <div class="legend-item"><span class="legend-swatch" style="background:#f97316;"></span>Critical congestion</div>
+        </div>
+      </section>
+
+      <section class="right-stack">
+        <section class="panel">
+          <div class="panel-header">
+            <h2 style="margin:0;">System Metrics</h2>
+            <span class="subtle" id="statusText">Ready</span>
+          </div>
+          <div class="summary-grid" id="stats"></div>
+          <div class="lane-grid">
+            <div class="lane-card" id="laneCardN">
+              <div class="lane-title"><span>North</span><span class="lane-count" id="laneN">0</span></div>
+              <div class="bar-shell"><div class="bar-fill" id="barN"></div></div>
+              <div class="subtle" id="waitN" style="margin-top:8px;">avg wait 0.00 | max 0</div>
+            </div>
+            <div class="lane-card" id="laneCardS">
+              <div class="lane-title"><span>South</span><span class="lane-count" id="laneS">0</span></div>
+              <div class="bar-shell"><div class="bar-fill" id="barS"></div></div>
+              <div class="subtle" id="waitS" style="margin-top:8px;">avg wait 0.00 | max 0</div>
+            </div>
+            <div class="lane-card" id="laneCardE">
+              <div class="lane-title"><span>East</span><span class="lane-count" id="laneE">0</span></div>
+              <div class="bar-shell"><div class="bar-fill" id="barE"></div></div>
+              <div class="subtle" id="waitE" style="margin-top:8px;">avg wait 0.00 | max 0</div>
+            </div>
+            <div class="lane-card" id="laneCardW">
+              <div class="lane-title"><span>West</span><span class="lane-count" id="laneW">0</span></div>
+              <div class="bar-shell"><div class="bar-fill" id="barW"></div></div>
+              <div class="subtle" id="waitW" style="margin-top:8px;">avg wait 0.00 | max 0</div>
+            </div>
+          </div>
+          <div class="panel-header" style="margin-top:14px;">
+            <h2 style="margin:0;font-size:1rem;">2x2 Network View</h2>
+            <span class="subtle">All intersections</span>
+          </div>
+          <div class="network-grid" id="networkGrid"></div>
+        </section>
+
+        <section class="decision-card" id="decisionCard">
+          <div class="panel-header">
+            <h2 style="margin:0;">AI Decision Panel</h2>
+            <span id="decisionBadge" class="badge info">Awaiting step</span>
+          </div>
+          <div class="decision-main">
+            <div class="decision-kpi">
+              <div class="subtle">Current Action</div>
+              <div id="decisionAction" class="decision-value">-</div>
+            </div>
+            <div class="decision-kpi">
+              <div class="subtle">Expected Effect</div>
+              <div id="decisionEffect" class="decision-value">-</div>
+            </div>
+          </div>
+          <div class="explain-list" id="decisionExplain" style="margin-top:12px;">
+            <div class="explain-item subtle">Take a step to inspect policy reasoning.</div>
+          </div>
+        </section>
+      </section>
+    </section>
+
+    <section class="chart-grid">
+      <section class="panel chart-card">
+        <div class="chart-meta">
+          <span>Queue Over Time</span>
+          <span id="queueChartMeta">No samples</span>
+        </div>
+        <svg viewBox="0 0 500 150" preserveAspectRatio="none">
+          <polyline id="queueLine" fill="none" stroke="var(--cyan)" stroke-width="3" points=""></polyline>
+        </svg>
+      </section>
+
+      <section class="panel chart-card">
+        <div class="chart-meta">
+          <span>Reward Over Time</span>
+          <span id="rewardChartMeta">No samples</span>
+        </div>
+        <svg viewBox="0 0 500 150" preserveAspectRatio="none">
+          <polyline id="rewardLine" fill="none" stroke="var(--green)" stroke-width="3" points=""></polyline>
+        </svg>
+      </section>
+
+      <section class="panel chart-card">
+        <div class="chart-meta">
+          <span>Phase Timeline</span>
+          <span id="phaseChartMeta">No samples</span>
+        </div>
+        <svg viewBox="0 0 500 150" preserveAspectRatio="none" id="phaseTimeline"></svg>
+      </section>
+    </section>
+
+    <section class="panel" style="margin-top:18px;">
+      <div class="panel-header">
+        <h2 style="margin:0;">Long-Horizon Markers</h2>
+        <span class="subtle">Collapse, recovery, and regime tracking</span>
+      </div>
+      <div class="trend-strip" id="trendMarkers">
+        <div class="trend-chip">Reset or step the environment to inspect long-horizon markers.</div>
+      </div>
+    </section>
+
+    <section class="bottom-grid">
+      <section class="explain-card">
+        <div class="panel-header">
+          <h2 style="margin:0;">Score Breakdown</h2>
+          <span class="subtle">Component-level grading</span>
+        </div>
+        <div class="score-overall" id="scoreOverall">
+          Reset or step the environment to inspect the benchmark report.
+        </div>
+        <div class="score-list" id="scoreList">
+          <div class="score-item subtle">Reset or step the environment to inspect score components.</div>
+        </div>
+      </section>
+
+      <section class="panel history">
+        <div class="panel-header">
+          <h2 style="margin:0;">Step History</h2>
+          <span class="subtle">Action trace</span>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Step</th>
+              <th>Action</th>
+              <th>Reward</th>
+              <th>Phase</th>
+              <th>Queues</th>
+            </tr>
+          </thead>
+          <tbody id="historyBody"></tbody>
+        </table>
+      </section>
+    </section>
+
+    <section class="panel compare-wrap" style="margin-top:18px;">
+      <div class="panel-header">
+        <h2 style="margin:0;">Baseline Comparison</h2>
+        <span class="subtle">Deterministic policy benchmark</span>
+      </div>
+      <table class="compare-table">
+        <thead>
+          <tr>
+            <th>Policy</th>
+            <th>Task</th>
+            <th>Score</th>
+            <th>Avg Queue</th>
+            <th>Wait Time</th>
+            <th>Switches</th>
+          </tr>
+        </thead>
+        <tbody id="baselineBody">
+          <tr><td colspan="6" class="subtle">Loading baseline results...</td></tr>
+        </tbody>
+      </table>
+    </section>
+  </div>
+
+  <script>
+    const MAX_VISIBLE_CARS = 12;
+
+    const taskSelect = document.getElementById("taskSelect");
+    const resetBtn = document.getElementById("resetBtn");
+    const keepBtn = document.getElementById("keepBtn");
+    const switchBtn = document.getElementById("switchBtn");
+    const autoBtn = document.getElementById("autoBtn");
+    const speedSelect = document.getElementById("speedSelect");
+    const stats = document.getElementById("stats");
+    const historyBody = document.getElementById("historyBody");
+    const statusText = document.getElementById("statusText");
+    const taskMotivation = document.getElementById("taskMotivation");
+    const taskGoal = document.getElementById("taskGoal");
+    const taskWarning = document.getElementById("taskWarning");
+    const phasePill = document.getElementById("phasePill");
+    const regimeBadge = document.getElementById("regimeBadge");
+    const heroScenario = document.getElementById("heroScenario");
+    const heroRegime = document.getElementById("heroRegime");
+    const heroStatus = document.getElementById("heroStatus");
+    const decisionCard = document.getElementById("decisionCard");
+    const decisionBadge = document.getElementById("decisionBadge");
+    const decisionAction = document.getElementById("decisionAction");
+    const decisionEffect = document.getElementById("decisionEffect");
+    const decisionExplain = document.getElementById("decisionExplain");
+    const scoreOverall = document.getElementById("scoreOverall");
+    const scoreList = document.getElementById("scoreList");
+    const baselineBody = document.getElementById("baselineBody");
+    const networkGrid = document.getElementById("networkGrid");
+    const gridlockBanner = document.getElementById("gridlockBanner");
+
+    const queueLine = document.getElementById("queueLine");
+    const rewardLine = document.getElementById("rewardLine");
+    const phaseTimeline = document.getElementById("phaseTimeline");
+    const queueChartMeta = document.getElementById("queueChartMeta");
+    const rewardChartMeta = document.getElementById("rewardChartMeta");
+    const phaseChartMeta = document.getElementById("phaseChartMeta");
+    const trendMarkers = document.getElementById("trendMarkers");
+
+    let currentObservation = null;
+    let latestReward = null;
+    let autoRunning = false;
+    let taskMeta = {};
+    let latestAnalysis = null;
+    let latestGrade = null;
+    let latestSummary = null;
+    let lastAction = null;
+    let queueHistory = [];
+    let rewardHistory = [];
+    let phaseHistory = [];
+
+    function pulseMetricCards() {
+      document.querySelectorAll(".stat-card").forEach((card) => {
+        card.classList.remove("pulse");
+        void card.offsetWidth;
+        card.classList.add("pulse");
+      });
+    }
+
+    function queueBarWidth(value) {
+      return `${Math.min(100, value * 10)}%`;
+    }
+
+    function renderStats(observation) {
+      const items = [
+        ["Task", observation.task_name],
+        ["Step", `${observation.step_count} / ${observation.max_steps}`],
+        ["Phase", observation.current_phase],
+        ["Regime", observation.regime_label],
+        ["Total Queue", observation.total_queue],
+        ["Peak Queue", latestSummary ? latestSummary.peak_queue : "-"],
+        ["Wait Time", observation.total_wait_time],
+        ["Gridlock Time", latestSummary ? latestSummary.gridlock_steps : "-"],
+        ["Switches", observation.switches_used],
+        ["Oscillations", latestSummary ? latestSummary.oscillation_count : "-"],
+        ["Latest Reward", latestReward === null ? "-" : latestReward.toFixed(2)],
+      ];
+
+      stats.innerHTML = items.map(([label, value]) => `
+        <div class="stat-card">
+          <div class="subtle">${label}</div>
+          <div class="stat-value">${value}</div>
+        </div>
+      `).join("");
+      pulseMetricCards();
+    }
+
+    function laneIsHot(observation, lane) {
+      return observation.queues[lane] >= 8 || observation.max_wait_time_per_lane[lane] >= 8;
+    }
+
+    function renderLaneCards(observation) {
+      const lanes = ["N", "S", "E", "W"];
+      for (const lane of lanes) {
+        const count = observation.queues[lane];
+        document.getElementById(`lane${lane}`).textContent = count;
+        document.getElementById(`bar${lane}`).style.width = queueBarWidth(count);
+        document.getElementById(`wait${lane}`).textContent =
+          `avg wait ${observation.average_wait_time_per_lane[lane].toFixed(2)} | max ${observation.max_wait_time_per_lane[lane]}`;
+        document.getElementById(`laneCard${lane}`).classList.toggle("hot", laneIsHot(observation, lane));
+      }
+    }
+
+    function renderNetworkGrid(observation) {
+      if (!observation.intersections) {
+        networkGrid.innerHTML = `<div class="subtle">Network data unavailable.</div>`;
+        return;
+      }
+      networkGrid.innerHTML = Object.values(observation.intersections).map((item) => `
+        <div class="network-card">
+          <div class="network-title">
+            <span>${item.intersection_id}</span>
+            <span class="network-phase">${item.current_phase}</span>
+          </div>
+          <div class="subtle">queue ${item.total_queue} | switches ${item.switches_used}</div>
+          <div class="subtle">N:${item.queues.N} S:${item.queues.S} E:${item.queues.E} W:${item.queues.W}</div>
+        </div>
+      `).join("");
+    }
+
+    function buildCars(direction, count, isActive) {
+      const visible = Math.min(count, MAX_VISIBLE_CARS);
+      const orientation = direction === "north" || direction === "south" ? "vertical" : "horizontal";
+      return Array.from({ length: visible }, (_, index) => {
+        const car = document.createElement("div");
+        car.className = `car ${orientation} ${direction}`;
+        if (isActive && index < 3) {
+          car.classList.add("active", "flow");
+        }
+        return car;
+      });
+    }
+
+    function lanePhaseActive(direction, phase) {
+      if (phase === "CLEARANCE") return false;
+      if ((direction === "north" || direction === "south") && phase === "NS_GREEN") return true;
+      if ((direction === "east" || direction === "west") && phase === "EW_GREEN") return true;
+      return false;
+    }
+
+    function renderQueue(direction, count, phase) {
+      const map = {
+        north: ["queueNorth", "moreNorth"],
+        south: ["queueSouth", "moreSouth"],
+        east: ["queueEast", "moreEast"],
+        west: ["queueWest", "moreWest"],
+      };
+      const [queueId, moreId] = map[direction];
+      const queueEl = document.getElementById(queueId);
+      const moreEl = document.getElementById(moreId);
+      const isActive = lanePhaseActive(direction, phase);
+      const isHot = count >= 8;
+
+      queueEl.innerHTML = "";
+      queueEl.className = `queue-lane ${direction}`;
+      if (phase === "CLEARANCE") {
+        queueEl.classList.add("clearance");
+      } else if (isActive) {
+        queueEl.classList.add("active");
+      }
+      if (isHot) {
+        queueEl.classList.add("hot");
+      }
+
+      buildCars(direction, count, isActive).forEach((car) => queueEl.appendChild(car));
+
+      const extra = count - MAX_VISIBLE_CARS;
+      if (extra > 0) {
+        moreEl.hidden = false;
+        moreEl.textContent = `+${extra} more`;
+      } else {
+        moreEl.hidden = true;
+      }
+    }
+
+    function setLights(nsState, ewState) {
+      ["nsRed", "nsYellow", "nsGreen", "ewRed", "ewYellow", "ewGreen"].forEach((id) => {
+        document.getElementById(id).classList.remove("on");
+      });
+      document.getElementById(`ns${nsState}`).classList.add("on");
+      document.getElementById(`ew${ewState}`).classList.add("on");
+    }
+
+    function renderIntersection(observation) {
+      renderQueue("north", observation.queues.N, observation.current_phase);
+      renderQueue("south", observation.queues.S, observation.current_phase);
+      renderQueue("east", observation.queues.E, observation.current_phase);
+      renderQueue("west", observation.queues.W, observation.current_phase);
+
+      if (observation.current_phase === "NS_GREEN") {
+        phasePill.textContent = "Phase: NS Green";
+        phasePill.style.background = "rgba(34, 197, 94, 0.14)";
+        phasePill.style.color = "#bbf7d0";
+        setLights("Green", "Red");
+      } else if (observation.current_phase === "EW_GREEN") {
+        phasePill.textContent = "Phase: EW Green";
+        phasePill.style.background = "rgba(59, 130, 246, 0.15)";
+        phasePill.style.color = "#bfdbfe";
+        setLights("Red", "Green");
+      } else {
+        phasePill.textContent = "Phase: Clearance";
+        phasePill.style.background = "rgba(245, 158, 11, 0.14)";
+        phasePill.style.color = "#fde68a";
+        setLights("Yellow", "Yellow");
+      }
+
+      regimeBadge.textContent = observation.regime_label;
+      regimeBadge.style.background = observation.regime_label === "Gridlock"
+        ? "rgba(239, 68, 68, 0.15)"
+        : observation.regime_label === "Moderate Congestion"
+          ? "rgba(245, 158, 11, 0.14)"
+          : "rgba(34, 197, 94, 0.12)";
+      regimeBadge.style.color = observation.regime_label === "Gridlock"
+        ? "#fecaca"
+        : observation.regime_label === "Moderate Congestion"
+          ? "#fde68a"
+          : "#bbf7d0";
+
+      heroRegime.textContent = `Regime: ${observation.regime_label}`;
+      gridlockBanner.classList.toggle("show", observation.regime_label === "Gridlock");
+    }
+
+    function renderDecisionPanel() {
+      if (!latestAnalysis || !lastAction) {
+        decisionAction.textContent = "-";
+        decisionEffect.textContent = "-";
+        decisionBadge.textContent = "Awaiting step";
+        decisionBadge.className = "badge info";
+        decisionCard.classList.remove("switching");
+        decisionExplain.innerHTML = `<div class="explain-item subtle">Take a step to inspect policy reasoning.</div>`;
+        return;
+      }
+
+      const queueDelta = latestAnalysis.queue_delta;
+      const effect = queueDelta < 0 ? "Relieving pressure" : queueDelta > 0 ? "Building pressure" : "Holding steady";
+      decisionAction.textContent = lastAction.toUpperCase();
+      decisionEffect.textContent = effect;
+      decisionBadge.textContent = latestAnalysis.regime;
+      decisionBadge.className = latestAnalysis.regime === "Gridlock" ? "badge warn" : "badge good";
+      decisionCard.classList.toggle("switching", lastAction === "switch");
+      decisionExplain.innerHTML = `
+        <div class="explain-item">${latestAnalysis.action_quality}</div>
+        <div class="explain-item">${latestAnalysis.imbalance_note}</div>
+        <div class="explain-item">${latestAnalysis.reward_note}</div>
+      `;
+    }
+
+    function renderScoreBreakdown() {
+      if (!latestGrade || !latestGrade.score_breakdown) {
+        scoreOverall.textContent = "Reset or step the environment to inspect the benchmark report.";
+        scoreList.innerHTML = `<div class="score-item subtle">Reset or step the environment to inspect score components.</div>`;
+        return;
+      }
+
+      const labels = {
+        congestion: "Congestion",
+        waiting_time: "Waiting Time",
+        fairness: "Fairness",
+        throughput: "Throughput",
+        stability: "Stability",
+        sustained_fairness: "Sustained Fairness",
+        recovery_behavior: "Recovery Behavior",
+        switching_efficiency: "Switching Efficiency",
+        priority_handling: "Priority Handling",
+        blocked_link_management: "Blocked-Link Management",
+        adaptation: "Adaptation",
+        anti_starvation: "Anti-Starvation",
+        recovery: "Recovery",
+        excessive_switching_penalty: "Excessive Switching Penalty",
+        starvation_penalty: "Starvation Penalty",
+        corridor_overserve_penalty: "Corridor Over-Serve Penalty",
+        late_collapse_penalty: "Late Collapse Penalty",
+        oscillation_penalty: "Oscillation Penalty",
+      };
+
+      scoreOverall.innerHTML = `
+        <div class="score-title">
+          <span>Final Score</span>
+          <strong>${Number(latestGrade.score).toFixed(3)}</strong>
+        </div>
+        <div class="subtle">${latestGrade.overall_explanation || latestGrade.details || ""}</div>
+      `;
+
+      const entries = Object.entries(latestGrade.score_breakdown).sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]));
+      scoreList.innerHTML = entries.map(([key, value]) => `
+        <div class="score-item">
+          <div class="score-title">
+            <span>${labels[key] || key}</span>
+            <strong>${value >= 0 ? "+" : ""}${Number(value).toFixed(3)}</strong>
+          </div>
+          <div class="score-bar-shell">
+            <div class="score-bar-fill ${value < 0 ? "penalty" : ""}" style="width:${Math.min(Math.abs(Number(value)) * 100, 100)}%"></div>
+          </div>
+          <div class="score-note">${latestGrade.component_explanations?.[key] || "No explanation available for this component."}</div>
+        </div>
+      `).join("");
+    }
+
+    function renderTrendMarkers() {
+      if (!latestSummary) {
+        trendMarkers.innerHTML = `<div class="trend-chip">Reset or step the environment to inspect long-horizon markers.</div>`;
+        return;
+      }
+
+      const collapseRisk = Number(latestSummary.task_metrics?.late_queue_ratio || 1);
+      const recoveryQuality = Number(latestSummary.task_metrics?.recovery_quality || 0);
+      const oscillationRate = Number(latestSummary.task_metrics?.oscillation_rate || 0);
+      const sustainedFairness = Number(latestSummary.sustained_fairness || 0);
+      const chips = [
+        { text: `Peak Queue ${latestSummary.peak_queue}`, cls: latestSummary.peak_queue >= 80 ? "warn" : "good" },
+        { text: `Gridlock ${latestSummary.gridlock_steps} steps`, cls: latestSummary.gridlock_steps >= Math.max(4, Math.floor((currentObservation?.max_steps || 1) * 0.25)) ? "warn" : "good" },
+        { text: `Recovery ${latestSummary.recovery_time} steps`, cls: recoveryQuality < 0.45 ? "warn" : "good" },
+        { text: `Oscillation ${latestSummary.oscillation_count} (${oscillationRate.toFixed(2)})`, cls: oscillationRate > 0.18 ? "warn" : "good" },
+        { text: `Sustained Fairness ${sustainedFairness.toFixed(2)}`, cls: sustainedFairness < 0.6 ? "warn" : "good" },
+        { text: collapseRisk > 1.2 ? `Collapse Risk ${collapseRisk.toFixed(2)}x` : `Recovery Holding ${collapseRisk.toFixed(2)}x`, cls: collapseRisk > 1.2 ? "warn" : "good" },
+        { text: `Free/Moderate/Gridlock ${latestSummary.free_flow_steps}/${latestSummary.moderate_congestion_steps}/${latestSummary.gridlock_steps}`, cls: latestSummary.gridlock_steps > latestSummary.free_flow_steps ? "warn" : "" },
+      ];
+
+      trendMarkers.innerHTML = chips.map((chip) => `
+        <div class="trend-chip ${chip.cls || ""}">${chip.text}</div>
+      `).join("");
+    }
+
+    function renderHistoryEntry(step, action, reward, observation) {
+      const row = document.createElement("tr");
+      row.innerHTML = `
+        <td>${step}</td>
+        <td><span class="badge ${action === "switch" ? "warn" : "good"}">${action}</span></td>
+        <td>${reward.toFixed(2)}</td>
+        <td>${observation.current_phase}</td>
+        <td>N:${observation.queues.N} S:${observation.queues.S} E:${observation.queues.E} W:${observation.queues.W}</td>
+      `;
+      historyBody.prepend(row);
+    }
+
+    function buildPolyline(values, maxValue, height) {
+      if (!values.length) return "";
+      return values.map((value, index) => {
+        const x = values.length === 1 ? 0 : (index / (values.length - 1)) * 500;
+        const y = height - ((value / maxValue) * (height - 20)) - 10;
+        return `${x},${y}`;
+      }).join(" ");
+    }
+
+    function renderCharts() {
+      if (!queueHistory.length) {
+        queueLine.setAttribute("points", "");
+        rewardLine.setAttribute("points", "");
+        phaseTimeline.innerHTML = "";
+        queueChartMeta.textContent = "No samples";
+        rewardChartMeta.textContent = "No samples";
+        phaseChartMeta.textContent = "No samples";
+        return;
+      }
+
+      const queueMax = Math.max(...queueHistory, 1);
+      queueLine.setAttribute("points", buildPolyline(queueHistory, queueMax, 150));
+      queueChartMeta.textContent = `Latest ${queueHistory[queueHistory.length - 1]} | Peak ${latestSummary ? latestSummary.peak_queue : queueMax}`;
+
+      rewardLine.setAttribute("points", buildPolyline(rewardHistory, 1, 150));
+      rewardChartMeta.textContent = latestSummary
+        ? `Latest ${rewardHistory[rewardHistory.length - 1].toFixed(2)} | Gridlock ${latestSummary.gridlock_steps} | Recovery ${latestSummary.recovery_time}`
+        : `Latest ${rewardHistory[rewardHistory.length - 1].toFixed(2)} | Best ${Math.max(...rewardHistory).toFixed(2)}`;
+
+      const width = 500 / phaseHistory.length;
+      phaseTimeline.innerHTML = phaseHistory.map((phase, index) => {
+        const color = phase === "NS_GREEN" ? "#22c55e" : phase === "EW_GREEN" ? "#3b82f6" : "#f59e0b";
+        return `<rect x="${index * width}" y="20" width="${Math.max(width - 2, 4)}" height="110" rx="6" fill="${color}" opacity="0.88"></rect>`;
+      }).join("");
+      phaseChartMeta.textContent = latestSummary
+        ? `${phaseHistory.length} steps | Oscillations ${latestSummary.oscillation_count} | F/M/G ${latestSummary.free_flow_steps}/${latestSummary.moderate_congestion_steps}/${latestSummary.gridlock_steps}`
+        : `${phaseHistory.length} steps tracked`;
+    }
+
+    function syncView(observation) {
+      currentObservation = observation;
+      renderStats(observation);
+      renderLaneCards(observation);
+      renderNetworkGrid(observation);
+      renderIntersection(observation);
+      renderDecisionPanel();
+      renderScoreBreakdown();
+      renderCharts();
+      renderTrendMarkers();
+      keepBtn.disabled = observation.done || autoRunning;
+      switchBtn.disabled = observation.done || autoRunning;
+    }
+
+    function baselineAction(observation) {
+      const ns = observation.queues.N + observation.queues.S;
+      const ew = observation.queues.E + observation.queues.W;
+      if (observation.current_phase === "CLEARANCE") return "keep";
+      if (observation.current_phase === "NS_GREEN") {
+        return ns >= ew ? "keep" : "switch";
+      }
+      return ew >= ns ? "keep" : "switch";
+    }
+
+    async function loadTasks() {
+      const response = await fetch("/tasks");
+      const data = await response.json();
+      taskMeta = Object.fromEntries(data.tasks.map((task) => [task.name, task]));
+      taskSelect.innerHTML = data.tasks.map((task) => `<option value="${task.name}">${task.name}</option>`).join("");
+    }
+
+    async function loadBaselines() {
+      const response = await fetch("/baselines");
+      const data = await response.json();
+      const policyAverages = data.policies.map((policy) => ({
+        name: policy.name,
+        avgScore: policy.results.reduce((sum, item) => sum + Number(item.score), 0) / policy.results.length,
+      })).sort((a, b) => b.avgScore - a.avgScore);
+      const rankMap = Object.fromEntries(policyAverages.map((item, index) => [item.name, index + 1]));
+      const rows = [];
+      data.policies.forEach((policy) => {
+        policy.results.forEach((result) => {
+          rows.push(`
+            <tr class="leader-${Math.min(rankMap[policy.name], 3)}">
+              <td>#${rankMap[policy.name]} ${policy.name}</td>
+              <td>${result.task}</td>
+              <td>${Number(result.score).toFixed(3)}</td>
+              <td>${Number(result.avg_queue).toFixed(2)}</td>
+              <td>${Number(result.avg_wait).toFixed(2)}</td>
+              <td>${result.switches}</td>
+            </tr>
+          `);
+        });
+      });
+      baselineBody.innerHTML = rows.join("");
+    }
+
+    async function loadState() {
+      const response = await fetch("/state");
+      const data = await response.json();
+      latestSummary = data.summary;
+      latestGrade = data.grade;
+    }
+
+    async function resetEnv() {
+      const response = await fetch("/reset", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ task_name: taskSelect.value }),
+      });
+      const data = await response.json();
+      historyBody.innerHTML = "";
+      latestReward = null;
+      latestAnalysis = null;
+      latestGrade = null;
+      latestSummary = null;
+      lastAction = null;
+      queueHistory = [];
+      rewardHistory = [];
+      phaseHistory = [];
+      const meta = taskMeta[taskSelect.value];
+      taskMotivation.textContent = meta ? `${meta.description} ${meta.motivation}` : "Scenario loaded.";
+      taskGoal.textContent = meta ? `Goal: ${meta.objective}` : "Goal unavailable.";
+      taskWarning.textContent = meta ? `Stress note: ${meta.stress_note}` : "Stress note unavailable.";
+      heroScenario.textContent = `Scenario: ${taskSelect.value}`;
+      heroStatus.textContent = "Status: Reset";
+      await loadState();
+      statusText.textContent = "Environment reset";
+      syncView(data.observation);
+    }
+
+    async function takeStep(action) {
+      const response = await fetch("/step", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action_type: action }),
+      });
+      const data = await response.json();
+      latestReward = data.reward.value;
+      latestAnalysis = data.analysis;
+      lastAction = action;
+      queueHistory.push(data.observation.total_queue);
+      rewardHistory.push(latestReward);
+      phaseHistory.push(data.observation.current_phase);
+      await loadState();
+      syncView(data.observation);
+      renderHistoryEntry(data.observation.step_count, action, latestReward, data.observation);
+      statusText.textContent = data.observation.last_action_error || "Step applied";
+      heroStatus.textContent = data.observation.done ? "Status: Complete" : `Status: ${autoRunning ? "Autoplay" : "Manual Control"}`;
+    }
+
+    async function autoPlay() {
+      if (!currentObservation || autoRunning) return;
+      autoRunning = true;
+      autoBtn.textContent = "Auto Playing...";
+      heroStatus.textContent = "Status: Autoplay";
+      syncView(currentObservation);
+      while (!currentObservation.done && autoRunning) {
+        const action = baselineAction(currentObservation);
+        await takeStep(action);
+        await new Promise((resolve) => setTimeout(resolve, Number(speedSelect.value)));
+      }
+      autoRunning = false;
+      autoBtn.textContent = "Auto Play";
+      syncView(currentObservation);
+      statusText.textContent = currentObservation.done ? "Episode complete" : "Auto play stopped";
+      heroStatus.textContent = currentObservation.done ? "Status: Complete" : "Status: Idle";
+    }
+
+    resetBtn.addEventListener("click", resetEnv);
+    keepBtn.addEventListener("click", () => takeStep("keep"));
+    switchBtn.addEventListener("click", () => takeStep("switch"));
+    autoBtn.addEventListener("click", () => {
+      if (autoRunning) {
+        autoRunning = false;
+        return;
+      }
+      autoPlay();
+    });
+
+    async function init() {
+      await loadTasks();
+      await loadBaselines();
+      await resetEnv();
+    }
+
+    init();
+  </script>
+</body>
+</html>
