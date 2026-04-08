@@ -20,8 +20,18 @@ def root() -> dict[str, str]:
     return {"status": "ok", "service": "traffic_openenv"}
 
 
+@app.get("/health")
+def health() -> dict[str, str]:
+    return {"status": "healthy"}
+
+
 @app.get("/demo")
 def demo() -> FileResponse:
+    return FileResponse(BASE_DIR / "static" / "demo.html")
+
+
+@app.get("/web")
+def web() -> FileResponse:
     return FileResponse(BASE_DIR / "static" / "demo.html")
 
 
