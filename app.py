@@ -15,6 +15,16 @@ env.reset()
 BASE_DIR = Path(__file__).resolve().parent
 
 
+def run() -> None:
+    import os
+
+    import uvicorn
+
+    host = os.getenv("HOST", "0.0.0.0")
+    port = int(os.getenv("PORT", "7860"))
+    uvicorn.run("app:app", host=host, port=port)
+
+
 @app.get("/")
 def root() -> dict[str, str]:
     return {"status": "ok", "service": "traffic_openenv"}

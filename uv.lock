@@ -1,0 +1,40 @@
+version = 1
+revision = 1
+requires-python = ">=3.11"
+
+[[package]]
+name = "traffic-openenv"
+version = "0.1.0"
+source = { editable = "." }
+dependencies = [
+    { name = "fastapi" },
+    { name = "openai" },
+    { name = "openenv-core" },
+    { name = "pydantic" },
+    { name = "uvicorn" },
+]
+
+[[package]]
+name = "fastapi"
+version = "0.116.1"
+source = { registry = "https://pypi.org/simple" }
+
+[[package]]
+name = "openai"
+version = "1.99.5"
+source = { registry = "https://pypi.org/simple" }
+
+[[package]]
+name = "openenv-core"
+version = "0.2.0"
+source = { registry = "https://pypi.org/simple" }
+
+[[package]]
+name = "pydantic"
+version = "2.11.7"
+source = { registry = "https://pypi.org/simple" }
+
+[[package]]
+name = "uvicorn"
+version = "0.35.0"
+source = { registry = "https://pypi.org/simple" }
