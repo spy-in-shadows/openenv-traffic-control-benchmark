@@ -93,6 +93,10 @@ def _clamp(value: float) -> float:
     return max(0.0, min(1.0, value))
 
 
+def _strict_unit_interval(value: float, epsilon: float = 1e-3) -> float:
+    return max(epsilon, min(1.0 - epsilon, value))
+
+
 def _weights_for_task(task_name: str) -> dict[str, float]:
     weights = dict(BASE_WEIGHTS)
     weights.update(TASK_WEIGHT_OVERRIDES.get(task_name, {}))
@@ -271,7 +275,7 @@ def grade_episode(summary: TaskSummary) -> GradeResult:
     )
 
     raw_score = sum(positive_breakdown.values()) - sum(penalties.values())
-    score = _clamp(raw_score)
+    score = _strict_unit_interval(raw_score)
 
     signed_breakdown = {
         **{key: round(value, 4) for key, value in positive_breakdown.items()},
