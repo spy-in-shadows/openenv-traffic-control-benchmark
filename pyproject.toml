@@ -17,10 +17,10 @@ dependencies = [
 ]
 
 [project.scripts]
-server = "app:run"
+server = "server.app:main"
 
 [tool.setuptools]
 include-package-data = true
 
 [tool.setuptools.packages.find]
-include = ["traffic_env*"]
+include = ["traffic_env*", "server*"]
