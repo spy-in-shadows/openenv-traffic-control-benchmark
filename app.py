@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from fastapi import Body, FastAPI
+from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse
 
 from compare_baselines import run_policy
@@ -53,8 +53,16 @@ def baselines() -> dict[str, list[dict[str, object]]]:
 
 
 @app.post("/reset")
-def reset(request: ResetRequest | None = Body(default=None)) -> dict[str, object]:
-    task_name = request.task_name if request is not None else None
+async def reset(request: Request) -> dict[str, object]:
+    task_name = None
+    try:
+        payload = await request.json()
+    except Exception:
+        payload = None
+
+    if isinstance(payload, dict) and payload:
+        parsed = ResetRequest(**payload)
+        task_name = parsed.task_name
     observation = env.reset(task_name)
     return {"observation": observation.model_dump()}
 
