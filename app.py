@@ -65,7 +65,8 @@ async def reset(request: Request) -> dict[str, object]:
         if isinstance(raw_task_name, str) and raw_task_name in TASK_DEFINITIONS:
             task_name = raw_task_name
     observation = env.reset(task_name)
-    return {"observation": observation.model_dump()}
+    observation_payload = observation.model_dump()
+    return {"observation": observation_payload, **observation_payload}
 
 
 @app.post("/step")
@@ -83,8 +84,10 @@ def step(request: StepRequest) -> dict[str, object]:
         result.reward.value,
         result.observation,
     )
+    observation_payload = result.observation.model_dump()
     return {
-        "observation": result.observation.model_dump(),
+        "observation": observation_payload,
+        **observation_payload,
         "reward": result.reward.model_dump(),
         "analysis": analysis,
     }
@@ -92,10 +95,13 @@ def step(request: StepRequest) -> dict[str, object]:
 
 @app.get("/state")
 def state() -> dict[str, object]:
+    observation = env.state()
     summary = env.episode_summary()
     grade = env.grade()
+    observation_payload = observation.model_dump()
     return {
-        "observation": env.state().model_dump(),
+        "observation": observation_payload,
+        **observation_payload,
         "summary": summary.model_dump(),
         "grade": grade.model_dump(),
     }
