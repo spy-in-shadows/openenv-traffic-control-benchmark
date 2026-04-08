@@ -6,7 +6,7 @@ from fastapi.responses import FileResponse
 from compare_baselines import run_policy
 from traffic_env.env import TrafficSignalEnv
 from traffic_env.explain import explain_transition
-from traffic_env.models import ResetRequest, StepRequest
+from traffic_env.models import StepRequest
 from traffic_env.tasks import TASK_DEFINITIONS
 
 app = FastAPI(title="Traffic OpenEnv")
@@ -60,9 +60,10 @@ async def reset(request: Request) -> dict[str, object]:
     except Exception:
         payload = None
 
-    if isinstance(payload, dict) and payload:
-        parsed = ResetRequest(**payload)
-        task_name = parsed.task_name
+    if isinstance(payload, dict):
+        raw_task_name = payload.get("task_name")
+        if isinstance(raw_task_name, str) and raw_task_name in TASK_DEFINITIONS:
+            task_name = raw_task_name
     observation = env.reset(task_name)
     return {"observation": observation.model_dump()}
 
