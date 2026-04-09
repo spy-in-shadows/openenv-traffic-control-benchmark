@@ -93,7 +93,7 @@ def _clamp(value: float) -> float:
     return max(0.0, min(1.0, value))
 
 
-def _strict_unit_interval(value: float, epsilon: float = 1e-3) -> float:
+def _strict_unit_interval(value: float, epsilon: float = 1e-2) -> float:
     return max(epsilon, min(1.0 - epsilon, value))
 
 

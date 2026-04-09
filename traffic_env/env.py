@@ -36,7 +36,7 @@ class TrafficSignalEnv:
     SWITCH_PENALTY = 0.03
     SERVICE_CAPACITY = 2
     PROPAGATION_FRACTION = 0.5
-    EPSILON = 1e-3
+    EPSILON = 1e-2
 
     def __init__(self) -> None:
         self._task_name = DEFAULT_TASK
