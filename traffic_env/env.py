@@ -36,6 +36,7 @@ class TrafficSignalEnv:
     SWITCH_PENALTY = 0.03
     SERVICE_CAPACITY = 2
     PROPAGATION_FRACTION = 0.5
+    EPSILON = 1e-3
 
     def __init__(self) -> None:
         self._task_name = DEFAULT_TASK
@@ -150,6 +151,7 @@ class TrafficSignalEnv:
             0.0,
             min(1.0, base_reward - (self.SWITCH_PENALTY if switched_any else 0.0)),
         )
+        reward_value = max(self.EPSILON, min(1.0 - self.EPSILON, reward_value))
 
         self._step_count += 1
         self._queue_sum += total_queue
