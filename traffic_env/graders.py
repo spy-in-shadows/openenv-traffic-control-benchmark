@@ -1,9 +1,8 @@
 from __future__ import annotations
 
 from traffic_env.models import GradeResult, TaskSummary
+from traffic_env.utils import EPS, strict_open_score
 
-
-EPS = 1e-6
 
 
 BASE_WEIGHTS = {
@@ -97,7 +96,7 @@ def _clamp(value: float) -> float:
 
 
 def _strict_unit_interval(value: float, epsilon: float = EPS) -> float:
-    return max(epsilon, min(1.0 - epsilon, value))
+    return strict_open_score(value)
 
 
 def _weights_for_task(task_name: str) -> dict[str, float]:

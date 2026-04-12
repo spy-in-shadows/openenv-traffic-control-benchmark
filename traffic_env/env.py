@@ -12,6 +12,7 @@ from traffic_env.models import (
     TaskSummary,
 )
 from traffic_env.tasks import DEFAULT_TASK, INTERSECTION_IDS, TASK_DEFINITIONS, TASK_SCHEDULES
+from traffic_env.utils import strict_open_score
 
 
 LANES = ("N", "S", "E", "W")
@@ -37,10 +38,6 @@ class TrafficSignalEnv:
     SERVICE_CAPACITY = 2
     PROPAGATION_FRACTION = 0.5
     EPSILON = 1e-2
-
-    @staticmethod
-    def _clip_open_unit_interval(value: float, epsilon: float = 1e-6) -> float:
-        return max(epsilon, min(1.0 - epsilon, value))
 
     def __init__(self) -> None:
         self._task_name = DEFAULT_TASK
@@ -92,7 +89,10 @@ class TrafficSignalEnv:
     def step(self, action: Action | dict[str, object] | str) -> StepResult:
         if self._done:
             self._last_action_error = "Episode already finished."
-            return StepResult(observation=self.state(), reward=Reward(value=0.0))
+            return StepResult(
+                observation=self.state(),
+                reward=Reward(value=strict_open_score(0.0)),
+            )
 
         self._advance_clearance_phases()
         validated_action = self._validate_action(action)
@@ -155,7 +155,7 @@ class TrafficSignalEnv:
             0.0,
             min(1.0, base_reward - (self.SWITCH_PENALTY if switched_any else 0.0)),
         )
-        reward_value = max(self.EPSILON, min(1.0 - self.EPSILON, reward_value))
+        reward_value = strict_open_score(reward_value)
 
         self._step_count += 1
         self._queue_sum += total_queue
@@ -210,7 +210,7 @@ class TrafficSignalEnv:
         return TaskSummary(
             task_name=self._task_name,
             steps_completed=self._step_count,
-            total_reward=self._clip_open_unit_interval(self._total_reward / steps_completed),
+            total_reward=strict_open_score(self._total_reward / steps_completed),
             average_queue_length=self._queue_sum / steps_completed,
             average_wait_time=self._total_wait_time / steps_completed,
             fairness_index=self._fairness_index(),

@@ -3,13 +3,7 @@ from __future__ import annotations
 from traffic_env.baselines import BASELINE_POLICIES
 from traffic_env.env import TrafficSignalEnv
 from traffic_env.tasks import get_task_names
-
-
-EPS = 1e-6
-
-
-def _safe_score(value: float) -> float:
-    return max(EPS, min(1.0 - EPS, value))
+from traffic_env.utils import strict_open_score
 
 
 def run_policy(policy_name: str) -> list[dict[str, float | int | str]]:
@@ -28,7 +22,7 @@ def run_policy(policy_name: str) -> list[dict[str, float | int | str]]:
         results.append(
             {
                 "task": task_name,
-                "score": _safe_score(grade.score),
+                "score": strict_open_score(grade.score),
                 "avg_queue": round(summary.average_queue_length, 2),
                 "avg_wait": round(summary.average_wait_time, 2),
                 "fairness": round(summary.fairness_index, 3),
