@@ -1,3 +1,13 @@
+---
+title: openenv-traffic-control-benchmark
+emoji: "🚦"
+colorFrom: blue
+colorTo: green
+sdk: docker
+app_port: 7860
+pinned: false
+---
+
 # Traffic OpenEnv
 
 Traffic OpenEnv is a compact deterministic benchmark for adaptive traffic signal control on a 2x2 network of intersections. It is designed to stay hackathon-safe and easy to run locally while still modeling the coordination problems that appear in real urban traffic systems.
