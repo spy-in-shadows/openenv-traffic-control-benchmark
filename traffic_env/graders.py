@@ -3,6 +3,9 @@ from __future__ import annotations
 from traffic_env.models import GradeResult, TaskSummary
 
 
+EPS = 1e-6
+
+
 BASE_WEIGHTS = {
     "congestion": 0.23,
     "waiting_time": 0.15,
@@ -86,14 +89,14 @@ TASK_WEIGHT_OVERRIDES = {
 
 
 def _bounded_inverse(value: float, scale: float) -> float:
-    return 1.0 / (1.0 + (max(value, 0.0) / scale))
+    return 0.99 / (1.0 + (max(value, 0.0) / scale))
 
 
 def _clamp(value: float) -> float:
-    return max(0.0, min(1.0, value))
+    return max(0.01, min(0.99, value))
 
 
-def _strict_unit_interval(value: float, epsilon: float = 5e-2) -> float:
+def _strict_unit_interval(value: float, epsilon: float = EPS) -> float:
     return max(epsilon, min(1.0 - epsilon, value))
 
 
@@ -275,8 +278,7 @@ def grade_episode(summary: TaskSummary) -> GradeResult:
     )
 
     raw_score = sum(positive_breakdown.values()) - sum(penalties.values())
-    bounded_score = _strict_unit_interval(raw_score)
-    score = 0.05 + (0.90 * bounded_score)
+    final_score = _strict_unit_interval(raw_score)
 
     signed_breakdown = {
         **{key: round(value, 4) for key, value in positive_breakdown.items()},
@@ -287,7 +289,7 @@ def grade_episode(summary: TaskSummary) -> GradeResult:
     best_component = sorted_positive[0][0] if sorted_positive else "overall_balance"
     main_penalty = sorted_negative[0][0] if sorted_negative and sorted_negative[0][1] > 0 else None
     overall_explanation = (
-        f"Final score {score:.3f} came primarily from {label_map.get(best_component, best_component)}. "
+        f"Final score {final_score:.3f} came primarily from {label_map.get(best_component, best_component)}. "
         + (
             f"The largest drag was {main_penalty.replace('_', ' ')}."
             if main_penalty
@@ -297,7 +299,7 @@ def grade_episode(summary: TaskSummary) -> GradeResult:
 
     return GradeResult(
         task_name=summary.task_name,
-        score=score,
+        score=final_score,
         average_queue_length=summary.average_queue_length,
         average_wait_time=summary.average_wait_time,
         fairness_index=summary.fairness_index,

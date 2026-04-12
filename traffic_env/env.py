@@ -38,6 +38,10 @@ class TrafficSignalEnv:
     PROPAGATION_FRACTION = 0.5
     EPSILON = 1e-2
 
+    @staticmethod
+    def _clip_open_unit_interval(value: float, epsilon: float = 1e-6) -> float:
+        return max(epsilon, min(1.0 - epsilon, value))
+
     def __init__(self) -> None:
         self._task_name = DEFAULT_TASK
         self._max_steps = TASK_DEFINITIONS[self._task_name].max_steps
@@ -206,7 +210,7 @@ class TrafficSignalEnv:
         return TaskSummary(
             task_name=self._task_name,
             steps_completed=self._step_count,
-            total_reward=self._total_reward / steps_completed,
+            total_reward=self._clip_open_unit_interval(self._total_reward / steps_completed),
             average_queue_length=self._queue_sum / steps_completed,
             average_wait_time=self._total_wait_time / steps_completed,
             fairness_index=self._fairness_index(),

@@ -13,6 +13,11 @@ from traffic_env.tasks import get_task_names
 BENCHMARK_NAME = "traffic_openenv_2x2_network"
 DEFAULT_API_BASE_URL = "https://api.openai.com/v1"
 DEFAULT_MODEL_NAME = "deterministic-baseline"
+EPS = 1e-6
+
+
+def clip_open_unit_interval(value: float) -> float:
+    return max(EPS, min(1.0 - EPS, value))
 
 def format_error(raw_error: str | None) -> str:
     return "null" if raw_error is None else raw_error
@@ -92,6 +97,7 @@ def main() -> None:
             if steps_taken:
                 summary = env.episode_summary()
                 grade = env.grade()
+                safe_score = clip_open_unit_interval(grade.score)
                 print(
                     "[SUMMARY] "
                     f"task={task_name} "
@@ -105,7 +111,7 @@ def main() -> None:
                     f"gridlock_steps={summary.gridlock_steps} "
                     f"recovery_time={summary.recovery_time} "
                     f"oscillations={summary.oscillation_count} "
-                    f"score={grade.score:.2f}",
+                    f"score={safe_score:.6f}",
                     file=sys.stderr,
                 )
 
