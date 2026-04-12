@@ -206,7 +206,7 @@ class TrafficSignalEnv:
         return TaskSummary(
             task_name=self._task_name,
             steps_completed=self._step_count,
-            total_reward=self._total_reward,
+            total_reward=self._total_reward / steps_completed,
             average_queue_length=self._queue_sum / steps_completed,
             average_wait_time=self._total_wait_time / steps_completed,
             fairness_index=self._fairness_index(),
