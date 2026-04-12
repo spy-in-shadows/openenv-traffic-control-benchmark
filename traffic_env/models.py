@@ -126,7 +126,7 @@ class GradeResult(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     task_name: TaskName
-    score: float = Field(ge=0.0, le=1.0)
+    score: float = Field(gt=0.0, lt=1.0)
     average_queue_length: float = Field(ge=0.0)
     average_wait_time: float = Field(ge=0.0)
     fairness_index: float = Field(ge=0.0, le=1.0)
