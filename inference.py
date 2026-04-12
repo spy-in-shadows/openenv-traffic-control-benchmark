@@ -56,6 +56,7 @@ def main() -> None:
         rewards: list[str] = []
         success = True
         steps_taken = 0
+        final_score = strict_open_score(0.0)
         print(f"[START] task={task_name} env={BENCHMARK_NAME} model={model_name}")
         try:
             observation = env.reset(task_name)
@@ -84,16 +85,17 @@ def main() -> None:
         except Exception:
             success = False
         finally:
+            if steps_taken:
+                final_score = strict_open_score(env.grade().score)
             print(
                 "[END] "
                 f"success={'true' if success else 'false'} "
                 f"steps={steps_taken} "
+                f"score={final_score:.2f} "
                 f"rewards={','.join(rewards)}"
             )
             if steps_taken:
                 summary = env.episode_summary()
-                grade = env.grade()
-                safe_score = strict_open_score(grade.score)
                 print(
                     "[SUMMARY] "
                     f"task={task_name} "
@@ -107,7 +109,7 @@ def main() -> None:
                     f"gridlock_steps={summary.gridlock_steps} "
                     f"recovery_time={summary.recovery_time} "
                     f"oscillations={summary.oscillation_count} "
-                    f"score={safe_score:.6f}",
+                    f"score={final_score:.6f}",
                     file=sys.stderr,
                 )
 

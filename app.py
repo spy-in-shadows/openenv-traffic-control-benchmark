@@ -9,6 +9,8 @@ from traffic_env.explain import explain_transition
 from traffic_env.models import StepRequest
 from traffic_env.tasks import TASK_DEFINITIONS
 
+EPS = 1e-6
+
 app = FastAPI(title="Traffic OpenEnv")
 env = TrafficSignalEnv()
 env.reset()
@@ -23,6 +25,20 @@ def run() -> None:
     host = os.getenv("HOST", "0.0.0.0")
     port = int(os.getenv("PORT", "7860"))
     uvicorn.run("app:app", host=host, port=port)
+
+
+def sanitize(obj):
+    if isinstance(obj, dict):
+        return {key: sanitize(value) for key, value in obj.items()}
+    if isinstance(obj, list):
+        return [sanitize(value) for value in obj]
+    if isinstance(obj, float):
+        if obj <= 0.0:
+            return EPS
+        if obj >= 1.0:
+            return 1.0 - EPS
+        return obj
+    return obj
 
 
 @app.get("/")
@@ -86,7 +102,7 @@ async def reset(request: Request) -> dict[str, object]:
             task_name = raw_task_name
     observation = env.reset(task_name)
     observation_payload = observation.model_dump()
-    return {"observation": observation_payload, **observation_payload}
+    return sanitize({"observation": observation_payload, **observation_payload})
 
 
 @app.post("/step")
@@ -105,12 +121,12 @@ def step(request: StepRequest) -> dict[str, object]:
         result.observation,
     )
     observation_payload = result.observation.model_dump()
-    return {
+    return sanitize({
         "observation": observation_payload,
         **observation_payload,
         "reward": result.reward.model_dump(),
         "analysis": analysis,
-    }
+    })
 
 
 @app.get("/state")
@@ -119,9 +135,9 @@ def state() -> dict[str, object]:
     summary = env.episode_summary()
     grade = env.grade()
     observation_payload = observation.model_dump()
-    return {
+    return sanitize({
         "observation": observation_payload,
         **observation_payload,
         "summary": summary.model_dump(),
         "grade": grade.model_dump(),
-    }
+    })
